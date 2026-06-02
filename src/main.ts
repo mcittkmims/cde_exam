@@ -103,6 +103,7 @@ const applySelectionScope = (id: string | null) => {
 const renderTopicButtons = (data: ExamData) => {
   const buttons = [
     `<button class="topic-button ${state.contentKind === "theory" && state.groupId === "all" ? "active" : ""}" data-kind="theory" data-group-id="all">
+      <span class="nav-cover">Teorie</span>
       <span class="nav-full">Toate</span>
       <span class="nav-short">Toate</span>
     </button>`,
@@ -120,7 +121,11 @@ const renderTopicButtons = (data: ExamData) => {
 
 const renderProblemSetButtons = (data: ExamData) => {
   const buttons = [
-    `<button class="topic-button ${state.contentKind === "problem" && state.groupId === "all" ? "active" : ""}" data-kind="problem" data-group-id="all">Toate problemele</button>`,
+    `<button class="topic-button ${state.contentKind === "problem" && state.groupId === "all" ? "active" : ""}" data-kind="problem" data-group-id="all">
+      <span class="nav-cover">Prob.</span>
+      <span class="nav-full">Toate problemele</span>
+      <span class="nav-short">Toate problemele</span>
+    </button>`,
     ...data.problemSets.map(
       (problemSet) =>
         `<button class="topic-button ${state.contentKind === "problem" && state.groupId === problemSet.id ? "active" : ""}" data-kind="problem" data-group-id="${problemSet.id}">
@@ -134,7 +139,9 @@ const renderProblemSetButtons = (data: ExamData) => {
 
 const renderGlobalButtons = () => `
   <button class="topic-button ${state.contentKind === "all" ? "active" : ""}" data-kind="all" data-group-id="all">
-    Tot materialul
+    <span class="nav-cover">Tot</span>
+    <span class="nav-full">Tot materialul</span>
+    <span class="nav-short">Tot materialul</span>
   </button>
 `;
 
@@ -251,6 +258,7 @@ const renderTheoryDetail = (selected: SearchResult) => {
 
   return `
     <section class="detail">
+      <button class="cover-back" data-cover-back aria-label="Înapoi la rezultate">← Rezultate</button>
       <div class="detail-header">
         <div>
           <p class="topic-line">Tema ${topic.number} · ${escapeHtml(topic.title)}</p>
@@ -298,6 +306,7 @@ const renderProblemDetail = (selected: SearchResult) => {
 
   return `
     <section class="detail">
+      <button class="cover-back" data-cover-back aria-label="Înapoi la rezultate">← Rezultate</button>
       <div class="detail-header">
         <div>
           <p class="topic-line">Problems · ${escapeHtml(problemSet.title)}</p>
@@ -439,6 +448,7 @@ app.addEventListener("input", (event) => {
     state.query = target.value;
     state.selectedId = null;
     state.resultsScrollTop = 0;
+    delete document.body.dataset.coverDetail;
     render();
     const input = document.querySelector<HTMLInputElement>("#search-input");
     input?.focus();
@@ -457,6 +467,7 @@ app.addEventListener("click", (event) => {
     state.groupId = navButton.dataset.groupId || "all";
     state.selectedId = null;
     state.resultsScrollTop = 0;
+    delete document.body.dataset.coverDetail;
     render();
     return;
   }
@@ -468,6 +479,16 @@ app.addEventListener("click", (event) => {
     return;
   }
 
+  const coverBack = target.closest<HTMLButtonElement>("[data-cover-back]");
+  if (coverBack) {
+    delete document.body.dataset.coverDetail;
+    render({ preserveResultsScroll: true });
+    requestAnimationFrame(() => {
+      document.querySelector<HTMLElement>(".workspace")?.scrollTo({ top: 0, behavior: "smooth" });
+    });
+    return;
+  }
+
   const resultLink = target.closest<HTMLAnchorElement>("[data-result-id]");
   if (resultLink) {
     event.preventDefault();
@@ -475,8 +496,12 @@ app.addEventListener("click", (event) => {
     state.selectedId = resultLink.dataset.resultId || null;
     history.replaceState(null, "", resultLink.hash);
     render({ preserveResultsScroll: true });
-    // On mobile, scroll detail panel into view after selection
-    if (window.innerWidth <= 980) {
+    if (window.innerWidth <= 430) {
+      // Cover screen: flip to detail-only view
+      document.body.dataset.coverDetail = "true";
+      document.querySelector<HTMLElement>(".workspace")?.scrollTo({ top: 0, behavior: "instant" });
+    } else if (window.innerWidth <= 980) {
+      // Regular mobile: smooth scroll to detail
       requestAnimationFrame(() => {
         document.querySelector(".detail")?.scrollIntoView({ behavior: "smooth", block: "start" });
       });
@@ -487,8 +512,11 @@ app.addEventListener("click", (event) => {
 window.addEventListener("hashchange", () => {
   state.selectedId = window.location.hash ? window.location.hash.slice(1) : null;
   applySelectionScope(state.selectedId);
+  delete document.body.dataset.coverDetail;
   render({ preserveResultsScroll: true });
-  if (window.innerWidth <= 980 && state.selectedId) {
+  if (state.selectedId && window.innerWidth <= 430) {
+    document.body.dataset.coverDetail = "true";
+  } else if (state.selectedId && window.innerWidth <= 980) {
     requestAnimationFrame(() => {
       document.querySelector(".detail")?.scrollIntoView({ behavior: "smooth", block: "start" });
     });
